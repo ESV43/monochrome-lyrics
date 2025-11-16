@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentTheme = themeManager.getTheme();
     themeManager.setTheme(currentTheme);
     
-    // --- [NEW] Reusable function to toggle lyrics panel ---
+    // --- [CORRECTED] Reusable function to toggle lyrics panel ---
     async function toggleLyricsPanel() {
         if (!player.currentTrack) {
             alert('No track is currently playing');
@@ -212,6 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const mode = nowPlayingSettings.getMode();
 
+        // If mode is karaoke, show karaoke view
         if (mode === 'karaoke') {
             lyricsPanel.classList.add('hidden');
             lyricsBtn.classList.remove('active');
@@ -223,7 +224,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 alert('No lyrics available for this track');
             }
-        } else if (mode === 'lyrics') {
+        } 
+        // [MODIFIED] For ANY other mode ('lyrics' or 'cover'), show the side panel
+        else {
             const isHidden = lyricsPanel.classList.toggle('hidden');
             lyricsBtn.classList.toggle('active', !isHidden);
 
@@ -255,10 +258,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const castBtn = document.getElementById('cast-btn');
     initializeCasting(audioPlayer, castBtn);
     
-    // --- [NEW] Event listener for the new lyrics button ---
+    // --- Event listener for the new lyrics button ---
     lyricsBtn.addEventListener('click', toggleLyricsPanel);
     
-    // --- [REMOVED] The old click listener on the album cover is gone. ---
+    // --- The old click listener on the album cover is removed. ---
     
     document.getElementById('close-lyrics-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -290,7 +293,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Update lyrics panel if it's open
         if (!lyricsPanel.classList.contains('hidden')) {
             const mode = nowPlayingSettings.getMode();
-            if (mode === 'lyrics') {
+            // [MODIFIED] Also check for 'cover' mode here, although 'lyrics' is the main one for the panel
+            if (mode === 'lyrics' || mode === 'cover') {
                 const content = lyricsPanel.querySelector('.lyrics-content');
                 content.innerHTML = '<div class="lyrics-loading">Loading lyrics...</div>';
                 
