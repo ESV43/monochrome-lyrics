@@ -130,6 +130,7 @@ function initializeKeyboardShortcuts(player, audioPlayer, lyricsPanel) {
                 document.getElementById('queue-modal-overlay').style.display = 'none';
                 if (lyricsPanel) {
                     lyricsPanel.classList.add('hidden');
+                    document.getElementById('lyrics-btn')?.classList.remove('active');
                     clearLyricsPanelSync(audioPlayer, lyricsPanel);
                 }
                 const karaokeView = document.getElementById('karaoke-view');
@@ -138,7 +139,7 @@ function initializeKeyboardShortcuts(player, audioPlayer, lyricsPanel) {
                 }
                 break;
             case 'l':
-                document.querySelector('.now-playing-bar .cover')?.click();
+                document.getElementById('lyrics-btn')?.click();
                 break;
         }
     });
@@ -197,10 +198,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     const scrobbler = new LastFMScrobbler();
     const lyricsManager = new LyricsManager(api);
     const lyricsPanel = createLyricsPanel();
+    const lyricsBtn = document.getElementById('lyrics-btn');
     
     const currentTheme = themeManager.getTheme();
     themeManager.setTheme(currentTheme);
     
+    // --- [NEW] Reusable function to toggle lyrics panel ---
+    async function toggleLyricsPanel() {
+        if (!player.currentTrack) {
+            alert('No track is currently playing');
+            return;
+        }
+
+        const mode = nowPlayingSettings.getMode();
+
+        if (mode === 'karaoke') {
+            lyricsPanel.classList.add('hidden');
+            lyricsBtn.classList.remove('active');
+            clearLyricsPanelSync(audioPlayer, lyricsPanel);
+
+            const lyricsData = await lyricsManager.fetchLyrics(player.currentTrack.id);
+            if (lyricsData) {
+                showKaraokeView(player.currentTrack, lyricsData, audioPlayer);
+            } else {
+                alert('No lyrics available for this track');
+            }
+        } else if (mode === 'lyrics') {
+            const isHidden = lyricsPanel.classList.toggle('hidden');
+            lyricsBtn.classList.toggle('active', !isHidden);
+
+            if (!isHidden) { // Panel is now visible
+                const content = lyricsPanel.querySelector('.lyrics-content');
+                content.innerHTML = '<div class="lyrics-loading">Loading lyrics...</div>';
+
+                const lyricsData = await lyricsManager.fetchLyrics(player.currentTrack.id);
+
+                if (lyricsData) {
+                    lyricsManager.currentLyrics = lyricsData;
+                    showSyncedLyricsPanel(lyricsData, audioPlayer, lyricsPanel);
+                } else {
+                    content.innerHTML = '<div class="lyrics-error">Failed to load lyrics</div>';
+                }
+            } else { // Panel is now hidden
+                clearLyricsPanelSync(audioPlayer, lyricsPanel);
+            }
+        }
+    }
+
     initializeSettings(scrobbler, player, api, ui);
     initializePlayerEvents(player, audioPlayer, scrobbler);
     initializeTrackInteractions(player, api, document.querySelector('.main-content'), document.getElementById('context-menu'));
@@ -211,50 +255,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const castBtn = document.getElementById('cast-btn');
     initializeCasting(audioPlayer, castBtn);
     
-    document.querySelector('.now-playing-bar .cover').addEventListener('click', async () => {
-        if (!player.currentTrack) {
-            alert('No track is currently playing');
-            return;
-        }
-        
-        const mode = nowPlayingSettings.getMode();
-        
-        if (mode === 'karaoke') {
-            lyricsPanel.classList.add('hidden');
-            clearLyricsPanelSync(audioPlayer, lyricsPanel);
-            
-            const lyricsData = await lyricsManager.fetchLyrics(player.currentTrack.id);
-            if (lyricsData) {
-                showKaraokeView(player.currentTrack, lyricsData, audioPlayer);
-            } else {
-                alert('No lyrics available for this track');
-            }
-        } else if (mode === 'lyrics') {
-            const isHidden = lyricsPanel.classList.contains('hidden');
-            lyricsPanel.classList.toggle('hidden');
-            
-            if (isHidden) {
-                const content = lyricsPanel.querySelector('.lyrics-content');
-                content.innerHTML = '<div class="lyrics-loading">Loading lyrics...</div>';
-                
-                const lyricsData = await lyricsManager.fetchLyrics(player.currentTrack.id);
-                
-                if (lyricsData) {
-                    lyricsManager.currentLyrics = lyricsData;
-                    showSyncedLyricsPanel(lyricsData, audioPlayer, lyricsPanel);
-                } else {
-                    content.innerHTML = '<div class="lyrics-error">Failed to load lyrics</div>';
-                }
-            } else {
-                // Clear sync when hiding
-                clearLyricsPanelSync(audioPlayer, lyricsPanel);
-            }
-        }
-    });
+    // --- [NEW] Event listener for the new lyrics button ---
+    lyricsBtn.addEventListener('click', toggleLyricsPanel);
+    
+    // --- [REMOVED] The old click listener on the album cover is gone. ---
     
     document.getElementById('close-lyrics-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         lyricsPanel.classList.add('hidden');
+        lyricsBtn.classList.remove('active'); // Deactivate button
         clearLyricsPanelSync(audioPlayer, lyricsPanel);
     });
     
